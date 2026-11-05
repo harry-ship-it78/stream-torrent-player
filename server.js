@@ -1,9 +1,17 @@
 const express = require("express");
 const WebTorrent = require("webtorrent");
 const path = require("path");
+const fs = require("fs");
+
 const app = express();
 const client = new WebTorrent();
-app.use(express.static(path.join(__dirname,"public")));
+
+// Serve static files from 'public' if it exists, otherwise fall back to the root directory
+const publicDir = fs.existsSync(path.join(__dirname, "public")) 
+  ? path.join(__dirname, "public") 
+  : __dirname;
+
+app.use(express.static(publicDir));
 app.use(express.json({limit:"2mb"}));
 
 let active = null;
@@ -18,13 +26,21 @@ app.post("/api/torrent", (req,res)=>{
     active.on("error",err=>console.error("torrent:",err.message));
   } catch(e){res.status(500).json({error:e.message});}
 });
-app.post("/api/stop",(req,res)=>{if(active){try{client.remove(active.infoHash,()=>{});}catch(e){} active=null;}res.json({ok:true});});
+
+app.post("/api/stop",(req,res)=>{
+  if(active){try{client.remove(active.infoHash,()=>{});}catch(e){} active=null;}
+  res.json({ok:true});
+});
+
 app.get("/api/status", (req,res)=>{
   if(!active) return res.json({active:false});
-  res.json({active:true,name:active.name,progress:active.progress,downloaded:active.downloaded,
-    downloadSpeed:active.downloadSpeed,uploadSpeed:active.uploadSpeed,numPeers:active.numPeers,
-    files:active.files.map((f,i)=>({id:i,name:f.name,length:f.length}))});
+  res.json({
+    active:true, name:active.name, progress:active.progress, downloaded:active.downloaded,
+    downloadSpeed:active.downloadSpeed, uploadSpeed:active.uploadSpeed, numPeers:active.numPeers,
+    files:active.files.map((f,i)=>({id:i,name:f.name,length:f.length}))
+  });
 });
+
 app.get("/stream/:id", (req,res)=>{
   if(!active) return res.status(404).send("No active torrent");
   const file=active.files[Number(req.params.id)];
@@ -48,7 +64,12 @@ app.get("/stream/:id", (req,res)=>{
   res.setHeader("Content-Type",mime(file.name));
   file.createReadStream({start,end}).pipe(res);
 });
-function mime(n){const e=path.extname(n).toLowerCase();return ({".mp4":"video/mp4",".m4v":"video/mp4",".webm":"video/webm",".mov":"video/quicktime",".ogv":"video/ogg",".mkv":"video/x-matroska",".mp3":"audio/mpeg"})[e]||"application/octet-stream";}
+
+function mime(n){
+  const e=path.extname(n).toLowerCase();
+  return ({".mp4":"video/mp4",".m4v":"video/mp4",".webm":"video/webm",".mov":"video/quicktime",".ogv":"video/ogg",".mkv":"video/x-matroska",".mp3":"audio/mpeg"})[e]||"application/octet-stream";
+}
+
 const port=process.env.PORT||3000;
 app.listen(port,()=>console.log(`Stream player listening on http://localhost:${port}`));
 process.on("SIGINT",()=>{client.destroy(()=>process.exit());});
