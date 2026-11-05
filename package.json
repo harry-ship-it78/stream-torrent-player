@@ -8,6 +8,6 @@
   },
   "dependencies": {
     "express": "^4.19.2",
-    "webtorrent": "^4.5.1"
+    "webtorrent": "^1.9.6"
   }
 }
