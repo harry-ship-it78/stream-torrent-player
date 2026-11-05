@@ -1,0 +1,7 @@
+{
+  "name":"stream-torrent-player",
+  "version":"1.0.0",
+  "private":true,
+  "scripts":{"start":"node server.js"},
+  "dependencies":{"express":"^4.21.2","webtorrent":"^2.5.19"}
+}
